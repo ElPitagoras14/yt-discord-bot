@@ -14,13 +14,6 @@ const interactionCreate: EventType = {
     const chatInteraction = interaction as ChatInputCommandInteraction;
     const member = chatInteraction.member as GuildMember;
 
-    if (member.user.username === "pandatd") {
-      await chatInteraction.reply(
-        "🐼 You are not allowed to use this bot. Mejor migajee a Awita"
-      );
-      return;
-    }
-
     if (interaction.isChatInputCommand()) {
       const command = interaction.client.commands.get(interaction.commandName);
 

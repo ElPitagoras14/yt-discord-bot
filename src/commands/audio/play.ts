@@ -176,7 +176,10 @@ const play: Command = {
         if (songSelected.isStringSelectMenu()) {
           url = songSelected.values[0];
           const label = videoMap.get(url);
-          await songSelected.update(`Song ${label} added to queue.`);
+          await songSelected.update({
+            content: `Song ${label} added to queue.`,
+            components: [],
+          });
         }
       } catch (error) {
         await chatInteraction.editReply({

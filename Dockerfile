@@ -23,4 +23,4 @@ COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
 
-CMD ["npm", "run", "start:with-register"]
+CMD ["npm", "run", "start"]
