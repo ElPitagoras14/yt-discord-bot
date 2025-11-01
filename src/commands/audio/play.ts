@@ -59,7 +59,7 @@ const playNext = async (
 
   stream.pipe(ffmpeg.stdin);
 
-  const bufferStream = new PassThrough({ highWaterMark: 1 << 20 });
+  const bufferStream = new PassThrough({ highWaterMark: 1 << 19 });
   ffmpeg.stdout.pipe(bufferStream);
 
   const resource = createAudioResource(bufferStream, {

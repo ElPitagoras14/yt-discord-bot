@@ -2,16 +2,20 @@ import dotenv from "dotenv";
 import { REST, Routes } from "discord.js";
 import fs from "node:fs";
 import path from "node:path";
-import { Command } from "./types/command";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { Command } from "./types/command.js";
 
 dotenv.config();
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const APP_ID = process.env.APP_ID;
-const ENV = process.env.NODE_ENV || "dev";
 
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN environment variable");
 if (!APP_ID) throw new Error("Missing APP_ID environment variable");
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const commands = [];
 
 const foldersPath = path.join(__dirname, "commands");
@@ -23,11 +27,12 @@ for (const folder of commandFolders) {
   const commandsPath = path.join(foldersPath, folder);
   const commandFiles = fs
     .readdirSync(commandsPath)
-    .filter((file) => file.endsWith(".ts"));
+    .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
 
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    const commandModule = require(filePath);
+
+    const commandModule = await import(pathToFileURL(filePath).href);
     const command: Command = commandModule.default || commandModule;
 
     if ("data" in command && "execute" in command) {
@@ -42,20 +47,16 @@ for (const folder of commandFolders) {
 
 const rest = new REST().setToken(TOKEN);
 
-(async () => {
-  try {
-    console.log(
-      `Started refreshing ${commands.length} apllication (/) commands`
-    );
+try {
+  console.log(`Started refreshing ${commands.length} application (/) commands`);
 
-    const data = await rest.put(Routes.applicationCommands(APP_ID), {
-      body: commands,
-    });
+  const data = await rest.put(Routes.applicationCommands(APP_ID), {
+    body: commands,
+  });
 
-    console.log(
-      `Successfully reloaded ${(data as any[]).length} application (/) commands`
-    );
-  } catch (error) {
-    console.error(error);
-  }
-})();
+  console.log(
+    `Successfully reloaded ${(data as any[]).length} application (/) commands`
+  );
+} catch (error) {
+  console.error(error);
+}

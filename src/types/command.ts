@@ -1,6 +1,5 @@
 import {
   SlashCommandBuilder,
-  ChatInputCommandInteraction,
   SlashCommandOptionsOnlyBuilder,
   SlashCommandSubcommandBuilder,
   Interaction,
