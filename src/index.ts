@@ -1,14 +1,19 @@
 import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Client, Collection, GatewayIntentBits } from "discord.js";
-import { Command } from "./types/command";
-import { EventType } from "./types/event";
+import { Command } from "./types/command.js";
+import { EventType } from "./types/event.js";
 
 dotenv.config();
 
 const TOKEN = process.env.DISCORD_TOKEN;
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN environment variable");
+
+// Necesario para __dirname en ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const client = new Client({
   intents: [
@@ -29,11 +34,13 @@ for (const folder of commandFolders) {
   const commandsPath = path.join(foldersPath, folder);
   const commandFiles = fs
     .readdirSync(commandsPath)
-    .filter((file) => file.endsWith(".ts"));
+    .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
 
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    const commandModule = require(filePath);
+
+    // Import dinámico en lugar de require
+    const commandModule = await import(pathToFileURL(filePath).href);
     const command: Command = commandModule.default || commandModule;
 
     if ("data" in command && "execute" in command) {
@@ -49,11 +56,13 @@ for (const folder of commandFolders) {
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs
   .readdirSync(eventsPath)
-  .filter((file) => file.endsWith(".ts"));
+  .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
-  const eventModule = require(filePath);
+
+  // Import dinámico en lugar de require
+  const eventModule = await import(pathToFileURL(filePath).href);
   const event: EventType = eventModule.default || eventModule;
 
   if (event.once) {
