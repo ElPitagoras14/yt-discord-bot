@@ -43,7 +43,7 @@ const assetsPath = path.join(grandParentDir, "assets", "destroy.mp3");
 
 const createAudioResourceFromMP3 = (filePath: string) => {
   const ffmpegProcess = spawn(
-    "ffmpeg",
+    ffmpegPath!,
     [
       "-i",
       filePath,
