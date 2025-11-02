@@ -1,19 +1,9 @@
-import {
-  ChatInputCommandInteraction,
-  Collection,
-  Events,
-  GuildMember,
-  Interaction,
-  MessageFlags,
-} from "discord.js";
+import { Collection, Events, Interaction, MessageFlags } from "discord.js";
 import { EventType } from "../types/event";
 
 const interactionCreate: EventType = {
   name: Events.InteractionCreate,
   execute: async (interaction: Interaction) => {
-    const chatInteraction = interaction as ChatInputCommandInteraction;
-    const member = chatInteraction.member as GuildMember;
-
     if (interaction.isChatInputCommand()) {
       const command = interaction.client.commands.get(interaction.commandName);
 

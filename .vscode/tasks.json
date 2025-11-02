@@ -4,7 +4,7 @@
     {
       "label": "Run bot",
       "type": "shell",
-      "command": "npm run start"
+      "command": "npm run dev"
     },
     {
       "label": "Register commands",

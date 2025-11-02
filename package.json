@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "start:with-register": "node dist/deploy-command.js && npm start",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx --watch src/index.ts",
     "build": "tsc"
   },
   "keywords": [],
@@ -20,10 +20,12 @@
     "discord.js": "^14.24.0",
     "dotenv": "^17.2.3",
     "ffmpeg-static": "^5.2.0",
+    "opusscript": "^0.0.8",
+    "winston": "^3.18.3",
     "ytdlp-nodejs": "^2.3.5"
   },
   "devDependencies": {
-    "@types/node": "^24.9.1",
+    "@types/node": "^24.9.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

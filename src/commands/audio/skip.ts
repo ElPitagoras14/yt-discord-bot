@@ -23,7 +23,7 @@ const skip: Command = {
     }
 
     queue.player.stop();
-    await chatInteraction.editReply("⏭️ Skipped the current song.");
+    await chatInteraction.reply("⏭️ Skipped the current song.");
   },
 };
 

@@ -1,5 +1,4 @@
 import {
-  ActionRowBuilder,
   ChatInputCommandInteraction,
   Interaction,
   InteractionContextType,
@@ -26,7 +25,9 @@ const queue: Command = {
     }
 
     const list = queue.songs
-      .map(({ title }, index) => `${index + 1}. **${title}**`)
+      .map(({ title }, index) =>
+        index === 0 ? `🔊 **${title}**` : `${index + 1}. **${title}**`
+      )
       .join("\n");
 
     const textDisplay = new TextDisplayBuilder().setContent(
