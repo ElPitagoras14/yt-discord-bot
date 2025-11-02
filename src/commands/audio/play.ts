@@ -260,10 +260,10 @@ const play: Command = {
 
       try {
         logger.info("Awaiting song selected");
-        const songSelected = await response.awaitMessageComponent({
+        songSelected = (await response.awaitMessageComponent({
           filter: collectorFilter,
           time: 30000,
-        });
+        })) as StringSelectMenuInteraction;
         if (songSelected.isStringSelectMenu()) {
           logger.debug("Song selected is a string select menu");
           url = songSelected.values[0];
@@ -362,7 +362,9 @@ const play: Command = {
         if (queue!.songs.length > 0) {
           await playNext(voiceChannel.guild.id, chatInteraction);
         } else {
-          logger.debug("Queue is empty. Waiting 2.5 seconds before cleaning up");
+          logger.debug(
+            "Queue is empty. Waiting 2.5 seconds before cleaning up"
+          );
 
           const resource = createAudioResourceFromMP3(assetsPath);
           resource.volume?.setVolume(3);
