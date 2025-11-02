@@ -4,6 +4,10 @@ services:
   discord-bot:
     build: .
     restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    dns_search: .
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - APP_ID=${APP_ID}
