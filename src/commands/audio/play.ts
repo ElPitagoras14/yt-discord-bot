@@ -27,7 +27,7 @@ import { PlaylistInfo, YtDlp } from "ytdlp-nodejs";
 import { Command } from "../../types/command";
 import { spawn } from "node:child_process";
 import { PassThrough, Readable } from "node:stream";
-import logger from "../../logger";
+import logger from "../../logger.js";
 import { Queue } from "../../types/queue";
 import { fileURLToPath } from "url";
 import path from "node:path";
