@@ -1,147 +1,92 @@
 import {
-  ActionRowBuilder,
   ChatInputCommandInteraction,
-  Client,
-  GuildMember,
   Interaction,
   InteractionContextType,
   SlashCommandBuilder,
-  StringSelectMenuBuilder,
-  StringSelectMenuInteraction,
-  StringSelectMenuOptionBuilder,
   VoiceBasedChannel,
 } from "discord.js";
-import {
-  joinVoiceChannel,
-  createAudioPlayer,
-  createAudioResource,
-  AudioPlayerStatus,
-  StreamType,
-  VoiceConnection,
-  AudioPlayer,
-  VoiceConnectionStatus,
-  entersState,
-} from "@discordjs/voice";
-import ffmpegPath from "ffmpeg-static";
-import { PlaylistInfo, YtDlp } from "ytdlp-nodejs";
+import { createAudioPlayer } from "@discordjs/voice";
 import { Command } from "../../types/command";
-import { spawn } from "node:child_process";
-import { PassThrough, Readable } from "node:stream";
 import logger from "../../logger.js";
-import { Queue } from "../../types/queue";
-import { fileURLToPath } from "url";
-import path from "node:path";
+import {
+  validateVoiceChannel,
+  validateQueueState,
+} from "../../utils/validation.js";
+import {
+  getVideoInfo,
+  searchVideos,
+  VideoInfo,
+} from "../../services/youtube.js";
+import {
+  getOrCreateQueue,
+  addSongToQueue,
+  startQueuePlayback,
+} from "../../services/queue.js";
+import {
+  createVoiceConnection,
+  setupConnectionHandlers,
+  cleanConnection,
+} from "../../services/connection.js";
+import { playNext } from "../../services/audio-playback.js";
+import {
+  createVideoSelectMenu,
+  handleVideoSelection,
+} from "../../components/video-selector.js";
+import { MESSAGES } from "../../constants/messages.js";
+import { createSessionLogger, generateSessionId } from "../../logger.js";
 
-const ytdlp = new YtDlp();
+const getUrlFromSubcommand = async (
+  interaction: ChatInputCommandInteraction,
+  _voiceChannel: VoiceBasedChannel,
+  sessionLogger: any,
+): Promise<{
+  url: string;
+  videoInfo: VideoInfo;
+  wasSelected: boolean;
+} | null> => {
+  const subcommand = interaction.options.getSubcommand();
+  let url: string | undefined;
+  let wasSelected = false;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const parentDir = path.dirname(__dirname);
-const grandParentDir = path.dirname(parentDir);
+  if (subcommand === "url") {
+    sessionLogger.info("URL subcommand executed");
+    url = interaction.options.getString("url", true);
+  } else if (subcommand === "query") {
+    sessionLogger.info("Query subcommand executed");
+    const query = interaction.options.getString("query", true);
 
-const assetsPath = path.join(grandParentDir, "assets", "destroy.mp3");
+    try {
+      const results = await searchVideos(query);
 
-const createAudioResourceFromMP3 = (filePath: string) => {
-  const ffmpegProcess = spawn(
-    ffmpegPath!,
-    [
-      "-i",
-      filePath,
-      "-f",
-      "s16le",
-      "-ar",
-      "48000",
-      "-ac",
-      "2",
-      "-loglevel",
-      "quiet",
-      "pipe:1",
-    ],
-    {
-      stdio: ["ignore", "pipe", "ignore"],
+      const menuWithRow = createVideoSelectMenu(results);
+      const selection = await handleVideoSelection(interaction, menuWithRow);
+      if (!selection) return null;
+
+      url = selection.url;
+      wasSelected = true;
+    } catch (error) {
+      sessionLogger.error("Search failed:", error);
+      return null;
     }
-  );
-
-  return createAudioResource(ffmpegProcess.stdout, {
-    inputType: StreamType.Raw,
-    inlineVolume: true,
-  });
-};
-
-const cleanConnection = async (
-  chatInteraction: ChatInputCommandInteraction,
-  voiceChannel: VoiceBasedChannel,
-  connection: VoiceConnection,
-  player: AudioPlayer,
-  queue: Queue | undefined
-) => {
-  queue!.playing = false;
-  queue = undefined;
-  chatInteraction.client.queue.delete(voiceChannel.guild.id);
-  logger.info("Queue deleted");
-  connection.destroy();
-  player.stop();
-  logger.info("Audio player stopped");
-  logger.info("Voice connection destroyed");
-};
-
-const playNext = async (
-  guildId: string,
-  interaction: ChatInputCommandInteraction
-) => {
-  logger.info("Playing next song");
-  const client = interaction.client as Client<true>;
-  const queue = client.queue.get(guildId);
-  if (!queue) {
-    logger.warn("Queue not found");
-    return;
   }
 
-  const [{ title, url }] = queue.songs;
+  if (!url) return null;
 
-  await interaction.followUp(`🎶 Now playing: ${title}`);
+  try {
+    sessionLogger.info("Getting info for URL");
+    const videoInfo = await getVideoInfo(url);
 
-  const player = queue.player;
+    if (videoInfo._type !== "video") {
+      await interaction.editReply(MESSAGES.ERRORS.INVALID_VIDEO_URL);
+      return null;
+    }
 
-  logger.info("Creating stream");
-  const stream = ytdlp.stream(url!, {
-    format: {
-      filter: "audioonly",
-    },
-  });
-
-  const ffmpeg = spawn(ffmpegPath!, [
-    "-i",
-    "pipe:0",
-    "-f",
-    "s16le",
-    "-ar",
-    "48000",
-    "-ac",
-    "2",
-    "pipe:1",
-  ]);
-
-  stream.pipe(ffmpeg.stdin);
-
-  logger.info("Creating buffer stream");
-  const bufferStream = new PassThrough({ highWaterMark: 1 << 19 });
-  ffmpeg.stdout.pipe(bufferStream);
-
-  logger.info("Creating audio resource");
-  const resource = createAudioResource(bufferStream, {
-    inputType: StreamType.Raw,
-  });
-
-  if (!resource) {
-    logger.error("Failed to create audio resource");
-    return;
+    return { url, videoInfo, wasSelected };
+  } catch (error) {
+    sessionLogger.error("Failed to get info for URL:", error);
+    await interaction.editReply(MESSAGES.ERRORS.VALID_URL_REQUIRED);
+    return null;
   }
-
-  logger.debug("Setting volume");
-  resource.volume?.setVolume(0.5);
-  logger.info("Playing audio resource");
-  player.play(resource);
 };
 
 const play: Command = {
@@ -149,252 +94,106 @@ const play: Command = {
     .setName("play")
     .setDescription("Plays a song.")
     .setContexts(InteractionContextType.Guild)
-    .addSubcommand((subcommand) =>
+    .addSubcommand((subcommand: any) =>
       subcommand
         .setName("url")
         .setDescription("Plays a song from a URL.")
-        .addStringOption((option) =>
+        .addStringOption((option: any) =>
           option
             .setName("url")
             .setDescription("The URL of the song to play.")
-            .setRequired(true)
-        )
+            .setRequired(true),
+        ),
     )
-    .addSubcommand((subcommand) =>
+    .addSubcommand((subcommand: any) =>
       subcommand
         .setName("query")
         .setDescription("Searches for a song and plays it.")
-        .addStringOption((option) =>
+        .addStringOption((option: any) =>
           option
-
             .setName("query")
             .setDescription("The query to search for.")
-            .setRequired(true)
-        )
+            .setRequired(true),
+        ),
     ),
   execute: async (interaction: Interaction) => {
-    logger.info("Play command executed");
     const chatInteraction = interaction as ChatInputCommandInteraction;
+    const sessionId = generateSessionId();
+    const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
+    const sessionLogger = createSessionLogger(sessionId, user);
+    
+    sessionLogger.info("Play command executed");
 
-    const member = chatInteraction.member as GuildMember;
-    const voiceChannel = member.voice.channel;
+    // Validar que el usuario esté en un canal de voz
+    const voiceChannel = await validateVoiceChannel(chatInteraction);
+    if (!voiceChannel) return;
 
-    if (!voiceChannel) {
-      logger.warn("User is not in a voice channel");
-      await chatInteraction.reply(
-        "You must be in a voice channel to play music!"
-      );
-      return;
-    }
+    // Obtener o validar cola existente
+    const existingQueue = chatInteraction.client.queue.get(
+      voiceChannel.guild.id,
+    );
+    if (!(await validateQueueState(chatInteraction, existingQueue))) return;
 
-    let queue = chatInteraction.client.queue.get(voiceChannel.guild.id);
-    if (queue?.destroying) {
-      await chatInteraction.reply(
-        "❌ The bot is disconnecting. Try again in 3 seconds."
-      );
-      return;
-    }
-
-    const subcommand = chatInteraction.options.getSubcommand();
-
+    // Defer reply para procesamiento largo
     await chatInteraction.deferReply();
 
-    let url;
-    let songSelected: StringSelectMenuInteraction | undefined;
-    if (subcommand === "url") {
-      logger.info("URL subcommand executed");
-      url = chatInteraction.options.getString("url", true);
-    } else if (subcommand === "query") {
-      logger.info("Query subcommand executed");
-      const query = chatInteraction.options.getString("query", true);
+    // Obtener URL e info del video
+    const videoData = await getUrlFromSubcommand(chatInteraction, voiceChannel, sessionLogger);
+    if (!videoData) return;
 
-      const info = await ytdlp.getInfoAsync(`ytsearch5:${query}`);
+    const { url, videoInfo, wasSelected } = videoData;
 
-      if (!info) {
-        logger.warn("Failed to get info for query");
-        await chatInteraction.editReply(`Failed to play. Use a valid query.`);
-        return;
-      }
+    // Obtener o crear cola
+    let queue = existingQueue || (await getOrCreateQueue(chatInteraction));
 
-      if (info._type !== "playlist") {
-        logger.warn("Query is not a playlist");
-        await chatInteraction.editReply(
-          `Failed to play. The query is not a playlist.`
-        );
-        return;
-      }
-
-      const parsedInfo = info as PlaylistInfo;
-      const videoMap = new Map<string, string>();
-
-      const videoSelect = new StringSelectMenuBuilder()
-        .setCustomId("video-select")
-        .setPlaceholder("Select a video")
-        .addOptions(
-          parsedInfo.entries.map((video) => {
-            const title =
-              video.title.length > 50
-                ? `${video.title.slice(0, 50)}...`
-                : video.title;
-            videoMap.set(video.url, title);
-            return new StringSelectMenuOptionBuilder()
-              .setLabel(title)
-              .setValue(video.url);
-          })
-        )
-        .setRequired(true);
-      logger.debug("Created video select menu");
-
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        videoSelect
-      );
-
-      const response = await chatInteraction.followUp({
-        content: `Select a song to play.`,
-        components: [row],
-        withResponse: true,
-      });
-      logger.info("Sent video select menu response");
-
-      const collectorFilter = (i: Interaction) => i.user.id === member.id;
-
-      try {
-        logger.info("Awaiting song selected");
-        songSelected = (await response.awaitMessageComponent({
-          filter: collectorFilter,
-          time: 30000,
-        })) as StringSelectMenuInteraction;
-        if (songSelected.isStringSelectMenu()) {
-          logger.debug("Song selected is a string select menu");
-          url = songSelected.values[0];
-          const label = videoMap.get(url);
-          logger.info(`Song selected is ${label}`);
-          await songSelected.update({
-            content: `Song ${label} added to queue.`,
-            components: [],
-          });
-        } else {
-          logger.warn("Song selected is not a string select menu");
-          await chatInteraction.editReply({
-            content: "Song no selected within 1 minute, cancelling",
-            components: [],
-          });
-          return;
-        }
-      } catch (error) {
-        logger.warn("Failed to await song selected");
-        logger.error(error);
-        await chatInteraction.editReply({
-          content: "Song no selected within 1 minute, cancelling",
-          components: [],
-        });
-        return;
-      }
-    }
-
-    let info;
-    try {
-      logger.info("Getting info for URL");
-      info = await ytdlp.getInfoAsync(url!);
-
-      if (info._type !== "video") {
-        logger.warn("URL is not a video");
-        await chatInteraction.editReply(
-          "Failed to play. The URL is not a video."
-        );
-        return;
-      }
-    } catch (error) {
-      logger.warn("Failed to get info for URL");
-      logger.error(error);
-      await chatInteraction.editReply("Failed to play. Use a valid URL.");
-      return;
-    }
-
-    if (!queue) {
-      logger.info("Creating audio player");
+    // Si no existe cola, crear player y conexión
+    if (!existingQueue) {
       const player = createAudioPlayer();
+      queue.player = player;
 
-      logger.info("Joining voice channel");
-      const connection = joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: voiceChannel.guild.id,
-        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      });
-
-      queue = {
-        songs: [],
-        player,
-        playing: false,
-        destroying: false,
-      };
-
-      chatInteraction.client.queue.set(voiceChannel.guild.id, queue);
-
+      sessionLogger.info("Joining voice channel");
+      const connection = createVoiceConnection(voiceChannel);
       connection.subscribe(player);
 
-      connection.on(
-        VoiceConnectionStatus.Disconnected,
-        async (oldState, newState) => {
-          try {
-            await Promise.race([
-              entersState(connection, VoiceConnectionStatus.Signalling, 5000),
-              entersState(connection, VoiceConnectionStatus.Connecting, 5000),
-            ]);
-          } catch {
-            cleanConnection(
-              chatInteraction,
-              voiceChannel,
-              connection,
-              player,
-              queue
-            );
-          }
-        }
+      // Setup handlers
+      setupConnectionHandlers(
+        connection,
+        player,
+        queue,
+        chatInteraction,
+        voiceChannel,
+        () =>
+          cleanConnection(
+            chatInteraction,
+            voiceChannel,
+            connection,
+            player,
+            queue,
+          ),
       );
 
-      player.on(AudioPlayerStatus.Idle, async () => {
-        if (queue!.destroying) return;
-
-        logger.debug("Audio player idle");
-        queue?.songs.shift();
-
-        if (queue!.songs.length > 0) {
-          await playNext(voiceChannel.guild.id, chatInteraction);
-        } else {
-          logger.debug(
-            "Queue is empty. Waiting 2.5 seconds before cleaning up"
-          );
-
-          const resource = createAudioResourceFromMP3(assetsPath);
-          resource.volume?.setVolume(3);
-          player.play(resource);
-          queue!.destroying = true;
-
-          setTimeout(() => {
-            cleanConnection(
-              chatInteraction,
-              voiceChannel,
-              connection,
-              player,
-              queue
-            );
-          }, 2500);
-        }
-      });
-
-      logger.info("Audio player subscribed");
+      sessionLogger.info("Audio player subscribed");
     }
 
-    queue.songs.push({ title: info.title, url: url! });
-    if (!songSelected) {
-      logger.info(`Song ${info.title} added to queue`);
-      await chatInteraction.editReply(`Song ${info.title} added to queue.`);
+    // Agregar canción a la cola
+    addSongToQueue(queue, {
+      title: videoInfo.title,
+      url,
+      requestedBy: user,
+      sessionId,
+    });
+
+    // Responder al usuario (solo si no fue seleccionada)
+    if (!wasSelected) {
+      await chatInteraction.editReply(
+        MESSAGES.SUCCESS.SONG_ADDED(videoInfo.title),
+      );
     }
 
+    // Iniciar reproducción si no está activa
     if (!queue.playing) {
-      await playNext(voiceChannel.guild.id, chatInteraction);
-      queue.playing = true;
+      await playNext(voiceChannel.guild.id, chatInteraction, sessionId, user);
+      startQueuePlayback(queue);
     }
   },
 };

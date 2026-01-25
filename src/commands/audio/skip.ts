@@ -5,25 +5,29 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { Command } from "../../types/command";
+import {
+  validateQueueExists,
+  validateQueueNotEmpty,
+} from "../../utils/audio-validation.js";
+import { playNext } from "../../services/audio-playback.js";
+import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
 
 const skip: Command = {
   data: new SlashCommandBuilder()
     .setName("skip")
-    .setDescription("Skips the current song.")
+    .setDescription("Skips current song.")
     .setContexts(InteractionContextType.Guild),
   execute: async (interaction: Interaction) => {
     const chatInteraction = interaction as ChatInputCommandInteraction;
 
-    const guildId = chatInteraction.guildId;
-    const queue = chatInteraction.client.queue.get(guildId!);
+    const { queue, success } = await validateQueueExists(chatInteraction);
+    if (!success) return;
 
-    if (!queue || queue.songs.length === 0) {
-      await chatInteraction.reply("❌ There is no queue.");
-      return;
-    }
+    if (!(await validateQueueNotEmpty(chatInteraction, queue!))) return;
 
-    queue.player.stop();
-    await chatInteraction.reply("⏭️ Skipped the current song.");
+    // Skip current song by stopping player (triggers next song logic)
+    queue!.player.stop();
+    await chatInteraction.reply(AUDIO_MESSAGES.SUCCESS.SONG_SKIPPED);
   },
 };
 
