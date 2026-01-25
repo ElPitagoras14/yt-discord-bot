@@ -4,32 +4,36 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
 } from "discord.js";
-import { Command } from "../../types/command";
 import { getVoiceConnection } from "@discordjs/voice";
+import { Command } from "../../types/command";
+import { validateQueueExists } from "../../utils/audio-validation.js";
+import { cleanConnection } from "../../services/connection.js";
+import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
 
 const stop: Command = {
   data: new SlashCommandBuilder()
     .setName("stop")
-    .setDescription("Stops the current song.")
+    .setDescription("Stops player and clears queue.")
     .setContexts(InteractionContextType.Guild),
   execute: async (interaction: Interaction) => {
     const chatInteraction = interaction as ChatInputCommandInteraction;
 
-    const guildId = chatInteraction.guildId;
-    const queue = chatInteraction.client.queue.get(guildId!);
+    const { queue, success } = await validateQueueExists(chatInteraction);
+    if (!success) return;
 
-    if (!queue) {
-      await chatInteraction.reply("❌ There is no queue.");
-      return;
+    const connection = getVoiceConnection(chatInteraction.guildId!);
+
+    if (connection) {
+      cleanConnection(
+        chatInteraction,
+        { guild: chatInteraction.guild!, id: chatInteraction.guildId! } as any,
+        connection,
+        queue!.player,
+        queue!,
+      );
     }
 
-    const connection = getVoiceConnection(guildId!);
-    connection?.destroy();
-
-    queue.player.stop();
-    interaction.client.queue.delete(guildId!);
-
-    await chatInteraction.reply("🛑 Player stopped and queue cleared.");
+    await chatInteraction.reply(AUDIO_MESSAGES.SUCCESS.PLAYER_STOPPED);
   },
 };
 

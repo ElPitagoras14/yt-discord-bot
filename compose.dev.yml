@@ -1,0 +1,22 @@
+services:
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: discord-bot-dev
+    working_dir: /app
+    command: npm run dev
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - APP_ID=${APP_ID}
+      - PUBLIC_KEY=${PUBLIC_KEY}
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    restart: unless-stopped
+
+volumes:
+  node_modules:

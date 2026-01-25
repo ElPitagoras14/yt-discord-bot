@@ -1,5 +1,6 @@
-import { Collection, Events, Interaction, MessageFlags } from "discord.js";
+import { Collection, Events, Interaction, MessageFlags, ChatInputCommandInteraction } from "discord.js";
 import { EventType } from "../types/event";
+import { handleCommandError } from "../utils/error-handler.js";
 
 const interactionCreate: EventType = {
   name: Events.InteractionCreate,
@@ -46,18 +47,7 @@ const interactionCreate: EventType = {
       try {
         await command.execute(interaction);
       } catch (error) {
-        console.error(error);
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp({
-            content: "There was an error while executing this command!",
-            flags: MessageFlags.Ephemeral,
-          });
-        } else {
-          await interaction.reply({
-            content: "There was an error while executing this command!",
-            flags: MessageFlags.Ephemeral,
-          });
-        }
+        await handleCommandError(error, interaction as ChatInputCommandInteraction);
       }
     } else if (interaction.isAutocomplete()) {
       const command = interaction.client.commands.get(interaction.commandName);

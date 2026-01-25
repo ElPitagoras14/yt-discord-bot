@@ -7,32 +7,33 @@ import {
   TextDisplayBuilder,
 } from "discord.js";
 import { Command } from "../../types/command";
+import { validateQueueExists } from "../../utils/audio-validation.js";
+import { isQueueEmpty } from "../../services/queue.js";
+import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
 
 const queue: Command = {
   data: new SlashCommandBuilder()
     .setName("queue")
-    .setDescription("Shows the current queue songs.")
+    .setDescription("Shows current queue songs.")
     .setContexts(InteractionContextType.Guild),
   execute: async (interaction: Interaction) => {
     const chatInteraction = interaction as ChatInputCommandInteraction;
 
-    const guildId = chatInteraction.guildId;
-    const queue = chatInteraction.client.queue.get(guildId!);
+    const { queue, success } = await validateQueueExists(chatInteraction);
+    if (!success) return;
 
-    if (!queue || queue.songs.length === 0) {
-      await chatInteraction.reply("There is no queue.");
-      return;
-    }
-
-    const list = queue.songs
+    const list = queue!.songs
       .map(({ title }, index) =>
-        index === 0 ? `🔊 **${title}**` : `${index + 1}. **${title}**`
+        index === 0 
+          ? AUDIO_MESSAGES.QUEUE.CURRENT_SONG(title)
+          : AUDIO_MESSAGES.QUEUE.SONG_ITEM(index, title)
       )
       .join("\n");
 
     const textDisplay = new TextDisplayBuilder().setContent(
-      `🎧 **Cola actual:**\n${list}`
+      `${AUDIO_MESSAGES.QUEUE.TITLE}\n${list}`
     );
+    
     await chatInteraction.reply({
       components: [textDisplay],
       flags: MessageFlags.IsComponentsV2,

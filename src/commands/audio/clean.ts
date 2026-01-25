@@ -5,25 +5,23 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { Command } from "../../types/command";
+import { validateQueueExists } from "../../utils/audio-validation.js";
+import { clearQueue } from "../../services/queue.js";
+import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
 
 const clean: Command = {
   data: new SlashCommandBuilder()
     .setName("clean")
-    .setDescription("Cleans the queue.")
+    .setDescription("Cleans queue.")
     .setContexts(InteractionContextType.Guild),
   execute: async (interaction: Interaction) => {
     const chatInteraction = interaction as ChatInputCommandInteraction;
 
-    const guildId = chatInteraction.guildId;
-    const queue = chatInteraction.client.queue.get(guildId!);
+    const { queue, success } = await validateQueueExists(chatInteraction);
+    if (!success) return;
 
-    if (!queue || queue.songs.length === 0) {
-      await chatInteraction.reply("❌ There is no queue.");
-      return;
-    }
-
-    queue.songs = [];
-    await chatInteraction.reply("🧹 Queue cleaned.");
+    clearQueue(queue!);
+    await chatInteraction.reply(AUDIO_MESSAGES.SUCCESS.QUEUE_CLEANED);
   },
 };
 
