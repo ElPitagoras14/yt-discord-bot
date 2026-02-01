@@ -2,7 +2,7 @@
 export const AUDIO_CONSTANTS = {
   VOLUME: {
     DEFAULT: 0.5,
-    CLEANUP_SOUND: 3,
+    CLEANUP_SOUND: 0.6,
   },
   TIMEOUTS: {
     VIDEO_SELECTION: 30000,
@@ -29,7 +29,6 @@ export const AUDIO_CONSTANTS = {
       "pipe:1",
     ],
     MP3_ARGS: [
-      "-i",
       "-map",
       "0:a",
       "-f",
@@ -39,7 +38,7 @@ export const AUDIO_CONSTANTS = {
       "-ac",
       "2",
       "-loglevel",
-      "quiet",
+      "error",
       "pipe:1",
     ],
   },

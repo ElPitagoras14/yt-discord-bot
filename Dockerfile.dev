@@ -11,13 +11,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-# Capa 2: Descargar yt-dlp (cacheable)
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
-    chmod +x /usr/local/bin/yt-dlp
-
-# Capa 3: Instalar dependencias npm (cacheable)
+# Capa 2: Instalar dependencias npm (cacheable)
 COPY package*.json ./
 RUN npm ci
+
+# Capa 3: Descargar yt-dlp (siempre latest, no cacheable)
+RUN --mount=type=cache,target=/var/cache/apt curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+    chmod +x /usr/local/bin/yt-dlp
 
 # Capa 4: Copiar código fuente (se actualiza con cambios)
 COPY . .
