@@ -1,13 +1,15 @@
-// Manejo centralizado de errores para comandos
 import { MessageFlags } from "discord.js";
 import { ChatInputCommandInteraction } from "discord.js";
 import logger from "../logger.js";
 
-export const handleCommandError = async (error: any, interaction: ChatInputCommandInteraction) => {
+export const handleCommandError = async (
+  error: any,
+  interaction: ChatInputCommandInteraction,
+) => {
   logger.error(`Command error in ${interaction.commandName}:`, error);
-  
+
   let message = "There was an error while executing this command!";
-  
+
   if (error.code === 50001) {
     message = "❌ Missing permissions to execute this command";
   } else if (error.message.includes("Invalid URL")) {
@@ -17,12 +19,18 @@ export const handleCommandError = async (error: any, interaction: ChatInputComma
   } else if (error.message.includes("yt-dlp failed")) {
     message = "❌ Failed to process video. Please try again later.";
   }
-  
+
   try {
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: message, flags: MessageFlags.Ephemeral });
+      await interaction.followUp({
+        content: message,
+        flags: MessageFlags.Ephemeral,
+      });
     } else {
-      await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
+      await interaction.reply({
+        content: message,
+        flags: MessageFlags.Ephemeral,
+      });
     }
   } catch (followUpError) {
     logger.error("Failed to send error message:", followUpError);

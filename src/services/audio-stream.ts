@@ -1,4 +1,3 @@
-// Servicios de streaming de audio
 import { spawn } from "node:child_process";
 import { createAudioResource, StreamType } from "@discordjs/voice";
 import { PassThrough } from "node:stream";
@@ -10,7 +9,7 @@ import { ChatInputCommandInteraction } from "discord.js";
 export const createAudioResourceFromMP3 = (filePath: string) => {
   try {
     logger.debug(`Creating audio resource from: ${filePath}`);
-    
+
     const ffmpegProcess = spawn(
       "ffmpeg",
       ["-i", filePath, ...AUDIO_CONSTANTS.FFMPEG.MP3_ARGS],
@@ -66,25 +65,35 @@ export const createAudioStream = (
 
   const ffmpeg = spawn("ffmpeg", AUDIO_CONSTANTS.FFMPEG.ARGS);
 
-  // Error handling para procesos
   const handleProcessError = (processName: string, error: any) => {
     logger.error(`${processName} process error: ${error}`);
   };
 
-  yt.on("error", (error) => handleProcessError("yt-dlp", error));
-  ffmpeg.on("error", (error) => handleProcessError("ffmpeg", error));
+  yt.on("error", (error) => {
+    if ((error as any).code === "ERR_STREAM_PREMATURE_CLOSE") {
+      logger.debug("yt-dlp process closed prematurely during skip");
+      return;
+    }
+    handleProcessError("yt-dlp", error);
+  });
 
-  // Error accumulation
+  ffmpeg.on("error", (error) => {
+    if ((error as any).code === "ERR_STREAM_PREMATURE_CLOSE") {
+      logger.debug("FFmpeg process closed prematurely during skip");
+      return;
+    }
+    handleProcessError("ffmpeg", error);
+  });
+
   let ytError = "";
   let ffmpegError = "";
 
   yt.stderr.on("data", (d) => {
     const data = d.toString();
     if (!data.trim()) return;
-    
-    // Silenciar completamente logs de descarga
+
     if (data.includes("[download]")) return;
-    
+
     if (data.includes("ERROR") || data.includes("WARNING")) {
       ytError += data;
       logger.error(`[yt-dlp] ${data}`);
@@ -99,7 +108,6 @@ export const createAudioStream = (
     }
   });
 
-  // Close handling
   yt.on("close", (code) => {
     if (code !== 0 && code !== null) {
       logger.error(`yt-dlp exited with code ${code}`);
@@ -114,7 +122,6 @@ export const createAudioStream = (
     }
   });
 
-  // Pipe streams
   yt.stdout.pipe(ffmpeg.stdin, { end: true });
 
   const bufferStream = new PassThrough({
@@ -123,11 +130,15 @@ export const createAudioStream = (
   });
 
   ffmpeg.stdout.pipe(bufferStream, { end: true });
-  bufferStream.on("error", (error) =>
-    logger.error(`buffer stream error: ${error}`),
-  );
+  bufferStream.on("error", (error) => {
+    // Handle premature closure during skip gracefully
+    if ((error as any).code === "ERR_STREAM_PREMATURE_CLOSE") {
+      logger.debug("Stream closed prematurely during skip - expected behavior");
+      return; // Silence this specific error
+    }
+    logger.error(`buffer stream error: ${error}`);
+  });
 
-  // Create resource
   const resource = createAudioResource(bufferStream, {
     inputType: StreamType.Raw,
     inlineVolume: true,

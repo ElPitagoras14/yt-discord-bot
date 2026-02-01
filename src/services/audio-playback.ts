@@ -1,10 +1,10 @@
-// Servicios de reproducción de audio
 import { ChatInputCommandInteraction, Client } from "discord.js";
 import logger from "../logger.js";
 import { createSessionLogger } from "../logger.js";
 import { getNextSong } from "./queue.js";
 import { createAudioStream, playAudioResource } from "./audio-stream.js";
 import { MESSAGES } from "../constants/messages.js";
+import { clearIdleTimeout } from "./idle-timeout.js";
 
 export const playNext = async (
   guildId: string,
@@ -27,7 +27,6 @@ export const playNext = async (
 
   const { title, url, requestedBy, sessionId: songSessionId } = song;
 
-  // Usar el logger de la canción si tiene sesión, sino el del comando
   const finalLogger = songSessionId
     ? createSessionLogger(songSessionId, requestedBy)
     : sessionLogger;
@@ -40,6 +39,8 @@ export const playNext = async (
   const { resource, cleanup } = createAudioStream(url!, title, url);
 
   const playSuccess = await playAudioResource(interaction, resource, player);
+
+  clearIdleTimeout(queue);
 
   if (!playSuccess) {
     cleanup();

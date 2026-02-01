@@ -7,8 +7,10 @@ import {
 import { getVoiceConnection } from "@discordjs/voice";
 import { Command } from "../../types/command";
 import { validateQueueExists } from "../../utils/audio-validation.js";
+import { clearIdleTimeout } from "../../services/idle-timeout.js";
 import { cleanConnection } from "../../services/connection.js";
 import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
+import logger from "../../logger";
 
 const stop: Command = {
   data: new SlashCommandBuilder()
@@ -17,9 +19,12 @@ const stop: Command = {
     .setContexts(InteractionContextType.Guild),
   execute: async (interaction: Interaction) => {
     const chatInteraction = interaction as ChatInputCommandInteraction;
+    const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
 
     const { queue, success } = await validateQueueExists(chatInteraction);
     if (!success) return;
+
+    clearIdleTimeout(queue!);
 
     const connection = getVoiceConnection(chatInteraction.guildId!);
 
@@ -33,6 +38,7 @@ const stop: Command = {
       );
     }
 
+    logger.info(`[${user}] Stopped player and cleared queue`);
     await chatInteraction.reply(AUDIO_MESSAGES.SUCCESS.PLAYER_STOPPED);
   },
 };

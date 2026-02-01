@@ -7,10 +7,7 @@ import {
 } from "discord.js";
 import { createAudioPlayer } from "@discordjs/voice";
 import { Command } from "../../types/command";
-import {
-  validateVoiceChannel,
-  validateQueueState,
-} from "../../utils/validation.js";
+import { validateVoiceChannel } from "../../utils/validation.js";
 import {
   getVideoInfo,
   searchVideos,
@@ -33,6 +30,9 @@ import {
 } from "../../components/video-selector.js";
 import { MESSAGES } from "../../constants/messages.js";
 import { createSessionLogger, generateSessionId } from "../../logger.js";
+import logger from "../../logger.js";
+import { formatUserForLogging } from "../../utils/user-format.js";
+import { clearIdleTimeout } from "../../services/idle-timeout.js";
 
 const getUrlFromSubcommand = async (
   interaction: ChatInputCommandInteraction,
@@ -118,25 +118,20 @@ const play: Command = {
   execute: async (interaction: Interaction) => {
     const chatInteraction = interaction as ChatInputCommandInteraction;
     const sessionId = generateSessionId();
-    const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
+    const user = formatUserForLogging(chatInteraction);
     const sessionLogger = createSessionLogger(sessionId, user);
 
     sessionLogger.info("Play command executed");
 
-    // Validar que el usuario esté en un canal de voz
     const voiceChannel = await validateVoiceChannel(chatInteraction);
     if (!voiceChannel) return;
 
-    // Obtener o validar cola existente
     const existingQueue = chatInteraction.client.queue.get(
       voiceChannel.guild.id,
     );
-    if (!(await validateQueueState(chatInteraction, existingQueue))) return;
 
-    // Defer reply para procesamiento largo
     await chatInteraction.deferReply();
 
-    // Obtener URL e info del video
     const videoData = await getUrlFromSubcommand(
       chatInteraction,
       voiceChannel,
@@ -146,10 +141,29 @@ const play: Command = {
 
     const { url, videoInfo, wasSelected } = videoData;
 
-    // Obtener o crear cola
     let queue = existingQueue || (await getOrCreateQueue(chatInteraction));
 
-    // Si no existe cola, crear player y conexión
+    if (existingQueue) {
+      clearIdleTimeout(queue);
+
+      // Start playback if queue has songs but player is idle
+      const queueIsEmpty = queue.songs.length === 0;
+      const shouldResetPlayingState = queueIsEmpty && queue.playing;
+
+      if (shouldResetPlayingState) {
+        queue.playing = false;
+      }
+
+      const needsPlaybackStart =
+        queue.songs.length === 1 || // First song in queue
+        (!queue.playing && queue.songs.length > 0); // Player idle with songs
+
+      if (needsPlaybackStart) {
+        await playNext(voiceChannel.guild.id, chatInteraction, sessionId, user);
+        startQueuePlayback(queue);
+      }
+    }
+
     if (!existingQueue) {
       const player = createAudioPlayer();
       queue.player = player;
@@ -158,7 +172,6 @@ const play: Command = {
       const connection = createVoiceConnection(voiceChannel);
       connection.subscribe(player);
 
-      // Setup handlers
       setupConnectionHandlers(
         connection,
         player,
@@ -178,7 +191,6 @@ const play: Command = {
       sessionLogger.info("Audio player subscribed");
     }
 
-    // Agregar canción a la cola
     addSongToQueue(queue, {
       title: videoInfo.title,
       url,
@@ -186,14 +198,12 @@ const play: Command = {
       sessionId,
     });
 
-    // Responder al usuario (solo si no fue seleccionada)
     if (!wasSelected) {
       await chatInteraction.editReply(
         MESSAGES.SUCCESS.SONG_ADDED(videoInfo.title),
       );
     }
 
-    // Iniciar reproducción si no está activa
     if (!queue.playing) {
       await playNext(voiceChannel.guild.id, chatInteraction, sessionId, user);
       startQueuePlayback(queue);

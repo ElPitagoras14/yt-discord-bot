@@ -1,4 +1,4 @@
-// Componente para selección de videos
+
 import {
   ActionRowBuilder,
   ChatInputCommandInteraction,
@@ -18,21 +18,21 @@ export const createVideoSelectMenu = (videos: VideoInfo[]) => {
     .setPlaceholder(MESSAGES.PLACEHOLDERS.SELECT_VIDEO)
     .addOptions(
       videos.map((video) => {
-        // Validación del título
+        
         let title = video.title || "Unknown";
         
-        // Remover caracteres problemáticos para Discord
+        
         title = title.replace(/[\\'",.;:!@#$%^&*(){}[\]|<>?]/g, '').trim();
         
-        // Asegurar que no esté vacío
+        
         if (!title) title = "Unknown";
         
-        // Aplicar límite de Discord
+        
         if (title.length > 50) {
           title = `${title.slice(0, 50)}...`;
         }
         
-        // Validar URL
+        
         const url = video.webpage_url || video.url || "";
         if (!url) {
           title = "Invalid URL";

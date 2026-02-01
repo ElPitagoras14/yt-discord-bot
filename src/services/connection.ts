@@ -1,4 +1,3 @@
-// Servicios de conexión de voz
 import {
   joinVoiceChannel,
   VoiceConnection,
@@ -12,23 +11,9 @@ import { ChatInputCommandInteraction, VoiceBasedChannel } from "discord.js";
 import logger from "../logger.js";
 import { Queue } from "../types/queue.js";
 import { AUDIO_CONSTANTS } from "../constants/audio.js";
-import { createAudioResourceFromMP3 } from "./audio-stream.js";
 import { isQueueEmpty, shiftQueue } from "./queue.js";
 import { playNext } from "./audio-playback.js";
-
-// Obtener path para assets
-import { fileURLToPath } from "url";
-import path from "node:path";
-import { existsSync } from "node:fs";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const parentDir = path.dirname(__dirname);
-const grandParentDir = path.dirname(parentDir);
-
-// En producción: usar path desde dist/
-const assetsPath = path.join(__dirname.replace("services", ""), "assets", "destroy.mp3");
+import { clearIdleTimeout, startIdleTimeout } from "./idle-timeout.js";
 
 export const createVoiceConnection = (
   voiceChannel: VoiceBasedChannel,
@@ -71,16 +56,33 @@ export const setupConnectionHandlers = (
   );
 
   player.on(AudioPlayerStatus.Idle, async () => {
-    if (queue.destroying) return;
-
-    logger.debug("Audio player idle");
+    const wasPlaying = queue.playing;
     shiftQueue(queue);
 
     if (!isQueueEmpty(queue)) {
       await playNext(voiceChannel.guild.id, interaction);
+    } else if (wasPlaying) {
+      // Queue became empty during playback
+      queue.playing = false;
+
+      // Wait to determine if this was from skip or song end
+      setTimeout(() => {
+        if (isQueueEmpty(queue) && queue.playing === false) {
+          startIdleTimeout(queue, () => {
+            cleanConnection(
+              interaction,
+              voiceChannel,
+              connection,
+              player,
+              queue,
+            );
+          });
+        }
+      }, 200);
     } else {
-      logger.debug("Queue is empty. Playing cleanup sound");
-      playCleanupSound(player, queue, () => {
+      // Player was already idle with empty queue
+      queue.playing = false;
+      startIdleTimeout(queue, () => {
         cleanConnection(interaction, voiceChannel, connection, player, queue);
       });
     }
@@ -107,6 +109,7 @@ export const cleanConnection = async (
 ) => {
   if (queue) {
     queue.playing = false;
+    clearIdleTimeout(queue);
   }
   chatInteraction.client.queue.delete(voiceChannel.guild.id);
   logger.info("Queue deleted");
@@ -114,32 +117,6 @@ export const cleanConnection = async (
   player.stop();
   logger.info("Audio player stopped");
   logger.info("Voice connection destroyed");
-};
-
-const playCleanupSound = (
-  player: AudioPlayer,
-  queue: Queue,
-  onComplete: () => void,
-) => {
-  queue.destroying = true;
-
-  // Validar que el archivo existe antes de intentar reproducirlo
-  if (!existsSync(assetsPath)) {
-    logger.error(`Cleanup sound not found at: ${assetsPath}`);
-    setTimeout(onComplete, 100); // Limpieza inmediata si no hay archivo
-    return;
-  }
-
-  logger.info(`Playing cleanup sound from: ${assetsPath}`);
-  const resource = createAudioResourceFromMP3(assetsPath);
-  if (resource) {
-    resource.volume?.setVolume(AUDIO_CONSTANTS.VOLUME.CLEANUP_SOUND);
-    player.play(resource);
-    setTimeout(onComplete, AUDIO_CONSTANTS.TIMEOUTS.CLEANUP_DELAY);
-  } else {
-    logger.error(`Failed to create cleanup sound resource from: ${assetsPath}`);
-    setTimeout(onComplete, 100); // Limpieza inmediata si falla la creación del recurso
-  }
 };
 
 const handlePlayerError = (
@@ -153,7 +130,6 @@ const handlePlayerError = (
   logger.error(`Audio player error: ${error.message}`);
 
   const metadata = error.resource?.metadata as any;
-  const isCleanupSound = !metadata?.title;
 
   if (metadata) {
     logger.error(
@@ -163,7 +139,7 @@ const handlePlayerError = (
     logger.error("No resource available in error");
   }
 
-  if (queue && !queue.destroying && !isCleanupSound && queue.songs.length > 1) {
+  if (queue && queue.songs.length > 1) {
     logger.debug("Attempting to play next song after error");
     shiftQueue(queue);
     playNext(voiceChannel.guild.id, interaction).catch((err) => {
@@ -171,16 +147,7 @@ const handlePlayerError = (
       cleanConnection(interaction, voiceChannel, connection, player, queue);
     });
   } else {
-    logger.debug(
-      "Cleaning up connection due to error or cleanup sound failure",
-    );
-    if (queue && !queue.destroying) {
-      queue.destroying = true;
-      setTimeout(
-        () =>
-          cleanConnection(interaction, voiceChannel, connection, player, queue),
-        AUDIO_CONSTANTS.TIMEOUTS.CLEANUP_DELAY,
-      );
-    }
+    logger.debug("Cleaning up connection due to error");
+    cleanConnection(interaction, voiceChannel, connection, player, queue);
   }
 };

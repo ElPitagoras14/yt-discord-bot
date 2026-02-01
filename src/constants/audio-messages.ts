@@ -1,4 +1,4 @@
-// Mensajes extendidos para todos los comandos de audio
+
 export const AUDIO_MESSAGES = {
   ERRORS: {
     NO_VOICE_CHANNEL: "You must be in a voice channel to use this command!",
