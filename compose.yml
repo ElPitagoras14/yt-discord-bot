@@ -1,13 +1,13 @@
 services:
   discord-bot:
     build: .
-    restart: unless-stopped
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     dns_search: .
+    container_name: discord-bot
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - APP_ID=${APP_ID}
       - PUBLIC_KEY=${PUBLIC_KEY}
-    container_name: discord-bot
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    restart: unless-stopped
