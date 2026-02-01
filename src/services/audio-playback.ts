@@ -26,9 +26,11 @@ export const playNext = async (
   if (!song) return;
 
   const { title, url, requestedBy, sessionId: songSessionId } = song;
-  
+
   // Usar el logger de la canción si tiene sesión, sino el del comando
-  const finalLogger = songSessionId ? createSessionLogger(songSessionId, requestedBy) : sessionLogger;
+  const finalLogger = songSessionId
+    ? createSessionLogger(songSessionId, requestedBy)
+    : sessionLogger;
 
   await interaction.followUp(MESSAGES.SUCCESS.NOW_PLAYING(title));
 

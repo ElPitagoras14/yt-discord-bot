@@ -7,7 +7,6 @@ import {
 } from "discord.js";
 import { createAudioPlayer } from "@discordjs/voice";
 import { Command } from "../../types/command";
-import logger from "../../logger.js";
 import {
   validateVoiceChannel,
   validateQueueState,
@@ -121,7 +120,7 @@ const play: Command = {
     const sessionId = generateSessionId();
     const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
     const sessionLogger = createSessionLogger(sessionId, user);
-    
+
     sessionLogger.info("Play command executed");
 
     // Validar que el usuario esté en un canal de voz
@@ -138,7 +137,11 @@ const play: Command = {
     await chatInteraction.deferReply();
 
     // Obtener URL e info del video
-    const videoData = await getUrlFromSubcommand(chatInteraction, voiceChannel, sessionLogger);
+    const videoData = await getUrlFromSubcommand(
+      chatInteraction,
+      voiceChannel,
+      sessionLogger,
+    );
     if (!videoData) return;
 
     const { url, videoInfo, wasSelected } = videoData;

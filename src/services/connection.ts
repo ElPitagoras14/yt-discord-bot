@@ -19,12 +19,16 @@ import { playNext } from "./audio-playback.js";
 // Obtener path para assets
 import { fileURLToPath } from "url";
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const parentDir = path.dirname(__dirname);
 const grandParentDir = path.dirname(parentDir);
-const assetsPath = path.join(grandParentDir, "assets", "destroy.mp3");
+
+// En producción: usar path desde dist/
+const assetsPath = path.join(__dirname.replace("services", ""), "assets", "destroy.mp3");
 
 export const createVoiceConnection = (
   voiceChannel: VoiceBasedChannel,
@@ -118,13 +122,24 @@ const playCleanupSound = (
   onComplete: () => void,
 ) => {
   queue.destroying = true;
+
+  // Validar que el archivo existe antes de intentar reproducirlo
+  if (!existsSync(assetsPath)) {
+    logger.error(`Cleanup sound not found at: ${assetsPath}`);
+    setTimeout(onComplete, 100); // Limpieza inmediata si no hay archivo
+    return;
+  }
+
+  logger.info(`Playing cleanup sound from: ${assetsPath}`);
   const resource = createAudioResourceFromMP3(assetsPath);
   if (resource) {
     resource.volume?.setVolume(AUDIO_CONSTANTS.VOLUME.CLEANUP_SOUND);
     player.play(resource);
+    setTimeout(onComplete, AUDIO_CONSTANTS.TIMEOUTS.CLEANUP_DELAY);
+  } else {
+    logger.error(`Failed to create cleanup sound resource from: ${assetsPath}`);
+    setTimeout(onComplete, 100); // Limpieza inmediata si falla la creación del recurso
   }
-
-  setTimeout(onComplete, AUDIO_CONSTANTS.TIMEOUTS.CLEANUP_DELAY);
 };
 
 const handlePlayerError = (

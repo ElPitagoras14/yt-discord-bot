@@ -19,7 +19,8 @@ WORKDIR /app
 RUN apk add --no-cache \
     python3 \
     ffmpeg \
-    yt-dlp
+    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod +x /usr/local/bin/yt-dlp
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules

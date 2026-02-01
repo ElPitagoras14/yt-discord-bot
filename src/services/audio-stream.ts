@@ -8,18 +8,45 @@ import { MESSAGES } from "../constants/messages.js";
 import { ChatInputCommandInteraction } from "discord.js";
 
 export const createAudioResourceFromMP3 = (filePath: string) => {
-  const ffmpegProcess = spawn(
-    "ffmpeg",
-    ["-i", filePath, ...AUDIO_CONSTANTS.FFMPEG.MP3_ARGS],
-    {
-      stdio: ["ignore", "pipe", "ignore"],
-    },
-  );
+  try {
+    logger.debug(`Creating audio resource from: ${filePath}`);
+    
+    const ffmpegProcess = spawn(
+      "ffmpeg",
+      ["-i", filePath, ...AUDIO_CONSTANTS.FFMPEG.MP3_ARGS],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
 
-  return createAudioResource(ffmpegProcess.stdout, {
-    inputType: StreamType.Raw,
-    inlineVolume: true,
-  });
+    ffmpegProcess.on("error", (error) => {
+      logger.error(`FFmpeg process error for ${filePath}: ${error}`);
+    });
+
+    ffmpegProcess.on("close", (code) => {
+      if (code !== 0) {
+        logger.warn(`FFmpeg process for ${filePath} exited with code: ${code}`);
+      }
+    });
+
+    ffmpegProcess.stderr.on("data", (data) => {
+      const errorMsg = data.toString().trim();
+      if (errorMsg) {
+        logger.error(`[FFmpeg stderr] ${errorMsg}`);
+      }
+    });
+
+    const resource = createAudioResource(ffmpegProcess.stdout, {
+      inputType: StreamType.Raw,
+      inlineVolume: true,
+    });
+
+    logger.debug(`Audio resource created successfully from: ${filePath}`);
+    return resource;
+  } catch (error) {
+    logger.error(`Error creating audio resource from ${filePath}: ${error}`);
+    return undefined;
+  }
 };
 
 export const createAudioStream = (
