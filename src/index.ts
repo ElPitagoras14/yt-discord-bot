@@ -11,7 +11,7 @@ dotenv.config();
 const TOKEN = process.env.DISCORD_TOKEN;
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN environment variable");
 
-// Necesario para __dirname en ESM
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -39,7 +39,7 @@ for (const folder of commandFolders) {
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
 
-    // Import dinámico en lugar de require
+
     const commandModule = await import(pathToFileURL(filePath).href);
     const command: Command = commandModule.default || commandModule;
 
@@ -61,7 +61,7 @@ const eventFiles = fs
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
 
-  // Import dinámico en lugar de require
+  
   const eventModule = await import(pathToFileURL(filePath).href);
   const event: EventType = eventModule.default || eventModule;
 

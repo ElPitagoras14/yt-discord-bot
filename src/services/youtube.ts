@@ -1,4 +1,4 @@
-// Servicios de YouTube usando yt-dlp
+
 import { spawn } from "node:child_process";
 import logger from "../logger.js";
 import { AUDIO_CONSTANTS } from "../constants/audio.js";
@@ -25,9 +25,9 @@ const logYtDlpError = (data: string, context: string = "yt-dlp") => {
   const trimmedData = data.trim();
   if (!trimmedData) return;
 
-  // COMPLETAMENTE IGNORAR logs de descarga
+  
   if (trimmedData.includes("[download]")) {
-    return; // Silencio absoluto - no loguear nada
+    return;
   }
 
   if (trimmedData.includes("ERROR")) {

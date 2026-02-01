@@ -1,16 +1,14 @@
-// Constants para operaciones de audio
 export const AUDIO_CONSTANTS = {
   VOLUME: {
     DEFAULT: 0.5,
-    CLEANUP_SOUND: 1,
   },
   TIMEOUTS: {
     VIDEO_SELECTION: 30000,
-    CLEANUP_DELAY: 2500,
     RECONNECT_TIMEOUT: 5000,
+    IDLE_DISCONNECT: 60000, // 1 minute
   },
   BUFFER: {
-    HIGH_WATER_MARK: 1 << 20, // 1MB
+    HIGH_WATER_MARK: 1 << 20,
   },
   FFMPEG: {
     ARGS: [

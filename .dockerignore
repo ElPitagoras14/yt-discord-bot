@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build and compilation
+dist/
+*.tsbuildinfo
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editors
+.vscode/
+.vscode-test/
+
+# Documentation
+README.md
+AGENTS.md
+
+# Environment and local config
+.env*
+.aider*
+
+# Caches and temp files
+.npm/
+.eslintcache
+.cache/
+.parcel-cache/
+
+# Logs and runtime
+logs/
+*.log
+*.pid

@@ -11,5 +11,5 @@ export interface Queue {
   songs: Song[];
   player: AudioPlayer;
   playing: boolean;
-  destroying: boolean;
+  idleTimer: NodeJS.Timeout | null;
 }
