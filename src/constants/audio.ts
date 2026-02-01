@@ -2,7 +2,7 @@
 export const AUDIO_CONSTANTS = {
   VOLUME: {
     DEFAULT: 0.5,
-    CLEANUP_SOUND: 0.6,
+    CLEANUP_SOUND: 1,
   },
   TIMEOUTS: {
     VIDEO_SELECTION: 30000,
