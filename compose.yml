@@ -1,7 +1,6 @@
 services:
   discord-bot:
-    build: .
-    dns_search: .
+    image: ghcr.io/elpitagoras14/yt-discord-bot:latest
     container_name: discord-bot
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}

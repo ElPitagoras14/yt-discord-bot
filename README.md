@@ -20,7 +20,7 @@ version: '3.8'
 
 services:
   discord-bot:
-    image: elpitagoras/yt-discord-bot:latest
+    image: ghcr.io/elpitagoras14/yt-discord-bot:latest
     container_name: yt-discord-bot
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
