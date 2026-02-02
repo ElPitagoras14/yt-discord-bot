@@ -16,12 +16,9 @@ A Discord bot for playing audio from YouTube with a focus on stability and simpl
 Deploy the bot using Docker Compose:
 
 ```yaml
-version: '3.8'
-
 services:
   discord-bot:
     image: ghcr.io/elpitagoras14/yt-discord-bot:latest
-    container_name: yt-discord-bot
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - APP_ID=${APP_ID}
