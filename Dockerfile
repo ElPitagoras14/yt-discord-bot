@@ -1,8 +1,8 @@
-FROM node:24.11-alpine AS builder
+FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
-COPY package*.json tsconfig*.json ./
+COPY package.json package-lock.json tsconfig.json ./
 
 RUN npm ci
 
@@ -11,22 +11,24 @@ COPY . .
 RUN npx tsc
 
 
-FROM node:24.11-alpine AS runner
+FROM node:24-bookworm-slim AS runner
 
 WORKDIR /app
 
-# Binarios necesarios en runtime
-RUN apk add --no-cache \
+# Update package index and install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
-    ffmpeg \
+    python3-pip \
     curl \
+    ffmpeg \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod +x /usr/local/bin/yt-dlp
+    && chmod +x /usr/local/bin/yt-dlp \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/assets ./dist/assets
 
 ENV NODE_ENV=production
 

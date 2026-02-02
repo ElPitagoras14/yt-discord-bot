@@ -30,7 +30,6 @@ import {
 } from "../../components/video-selector.js";
 import { MESSAGES } from "../../constants/messages.js";
 import { createSessionLogger, generateSessionId } from "../../logger.js";
-import logger from "../../logger.js";
 import { formatUserForLogging } from "../../utils/user-format.js";
 import { clearIdleTimeout } from "../../services/idle-timeout.js";
 

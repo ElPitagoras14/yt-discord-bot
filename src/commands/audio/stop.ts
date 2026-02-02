@@ -10,7 +10,7 @@ import { validateQueueExists } from "../../utils/audio-validation.js";
 import { clearIdleTimeout } from "../../services/idle-timeout.js";
 import { cleanConnection } from "../../services/connection.js";
 import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
-import logger from "../../logger";
+import logger from "../../logger.js";
 
 const stop: Command = {
   data: new SlashCommandBuilder()

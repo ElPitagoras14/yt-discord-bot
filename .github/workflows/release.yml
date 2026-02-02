@@ -2,10 +2,16 @@ name: Docker Release & Deploy
 
 on:
   push:
-    tags: 
-      - 'v*.*.*'
-      - 'v*.*.*-*'
-    branches: [main]
+    tags:
+      - "v*.*.*"
+      - "v*.*.*-*"
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g., 1.0.0)"
+        required: true
+        type: string
 
 permissions:
   packages: write
@@ -21,7 +27,11 @@ jobs:
 
       - name: Extract version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Building version: $VERSION"
 
@@ -42,8 +52,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/ElPitagoras14/yt-discord-bot:${{ env.VERSION }}
-            ghcr.io/ElPitagoras14/yt-discord-bot:latest
+            ghcr.io/elpitagoras14/yt-discord-bot:${{ env.VERSION }}
+            ghcr.io/elpitagoras14/yt-discord-bot:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
