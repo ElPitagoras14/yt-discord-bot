@@ -4,6 +4,7 @@ export const MESSAGES = {
     NO_VOICE_CHANNEL: "You must be in a voice channel to play music!",
     INVALID_VIDEO_URL: "Failed to play. The URL is not a video.",
     VALID_URL_REQUIRED: "Failed to play. Use a valid URL.",
+    INVALID_YOUTUBE_URL: "❌ Invalid YouTube URL format. Please use a valid YouTube video URL.",
     NO_SONG_FOUND: "No song found in queue",
     AUDIO_RESOURCE_FAILED:
       "❌ Failed to create audio resource. Please try again.",

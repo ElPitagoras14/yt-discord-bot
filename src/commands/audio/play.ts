@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import { createAudioPlayer } from "@discordjs/voice";
 import { Command } from "../../types/command";
-import { validateVoiceChannel } from "../../utils/validation.js";
+import { validateVoiceChannel, isValidYouTubeUrl } from "../../utils/validation.js";
 import {
   getVideoInfo,
   searchVideos,
@@ -48,7 +48,17 @@ const getUrlFromSubcommand = async (
 
   if (subcommand === "url") {
     sessionLogger.info("URL subcommand executed");
-    url = interaction.options.getString("url", true);
+    const rawUrl = interaction.options.getString("url", true);
+    
+    // Clean and validate YouTube URL
+    const cleanedUrl = isValidYouTubeUrl(rawUrl);
+    if (!cleanedUrl) {
+      await interaction.editReply(MESSAGES.ERRORS.INVALID_YOUTUBE_URL);
+      return null;
+    }
+    
+    url = cleanedUrl;
+    sessionLogger.info(`Cleaned URL: ${url}`);
   } else if (subcommand === "query") {
     sessionLogger.info("Query subcommand executed");
     const query = interaction.options.getString("query", true);
@@ -142,27 +152,6 @@ const play: Command = {
 
     let queue = existingQueue || (await getOrCreateQueue(chatInteraction));
 
-    if (existingQueue) {
-      clearIdleTimeout(queue);
-
-      // Start playback if queue has songs but player is idle
-      const queueIsEmpty = queue.songs.length === 0;
-      const shouldResetPlayingState = queueIsEmpty && queue.playing;
-
-      if (shouldResetPlayingState) {
-        queue.playing = false;
-      }
-
-      const needsPlaybackStart =
-        queue.songs.length === 1 || // First song in queue
-        (!queue.playing && queue.songs.length > 0); // Player idle with songs
-
-      if (needsPlaybackStart) {
-        await playNext(voiceChannel.guild.id, chatInteraction, sessionId, user);
-        startQueuePlayback(queue);
-      }
-    }
-
     if (!existingQueue) {
       const player = createAudioPlayer();
       queue.player = player;
@@ -190,6 +179,7 @@ const play: Command = {
       sessionLogger.info("Audio player subscribed");
     }
 
+    // Add song to queue FIRST
     addSongToQueue(queue, {
       title: videoInfo.title,
       url,
@@ -197,12 +187,18 @@ const play: Command = {
       sessionId,
     });
 
+    // Clear idle timeout if queue exists
+    if (existingQueue) {
+      clearIdleTimeout(queue);
+    }
+
     if (!wasSelected) {
       await chatInteraction.editReply(
         MESSAGES.SUCCESS.SONG_ADDED(videoInfo.title),
       );
     }
 
+    // Only start playback if nothing is currently playing
     if (!queue.playing) {
       await playNext(voiceChannel.guild.id, chatInteraction, sessionId, user);
       startQueuePlayback(queue);
