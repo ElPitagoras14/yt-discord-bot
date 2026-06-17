@@ -4,27 +4,32 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
 } from "discord.js";
-import { Command } from "../../types/command";
-import { validateQueueExists } from "../../utils/audio-validation.js";
-import { clearQueue } from "../../services/queue.js";
+import { Command } from "../../types/command.js";
 import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
+import { musicManager } from "../../music/MusicManager.js";
 import logger from "../../logger.js";
+import { formatUserForLogging } from "../../utils/user-format.js";
 
 const clean: Command = {
   data: new SlashCommandBuilder()
     .setName("clean")
-    .setDescription("Cleans queue.")
+    .setDescription("Cleans queue (keeps current song playing).")
     .setContexts(InteractionContextType.Guild),
+
   execute: async (interaction: Interaction) => {
-    const chatInteraction = interaction as ChatInputCommandInteraction;
-    const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
+    const i = interaction as ChatInputCommandInteraction;
+    const user = formatUserForLogging(i);
+    const guildId = i.guildId!;
 
-    const { queue, success } = await validateQueueExists(chatInteraction);
-    if (!success) return;
+    const queue = musicManager.getQueue(guildId);
+    if (!queue) {
+      await i.reply(AUDIO_MESSAGES.ERRORS.NO_QUEUE);
+      return;
+    }
 
-    clearQueue(queue!);
-    logger.info(`[${user}] Cleaned queue`);
-    await chatInteraction.reply(AUDIO_MESSAGES.SUCCESS.QUEUE_CLEANED);
+    queue.clear();
+    logger.info(`[${guildId}] [${user}] /clean invoked`);
+    await i.reply(AUDIO_MESSAGES.SUCCESS.QUEUE_CLEANED);
   },
 };
 

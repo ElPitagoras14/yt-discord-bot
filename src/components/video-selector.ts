@@ -7,10 +7,10 @@ import {
   StringSelectMenuOptionBuilder,
   Interaction,
 } from "discord.js";
-import { VideoInfo } from "../services/youtube.js";
+import { SearchResult } from "../music/types.js";
 import { MESSAGES } from "../constants/messages.js";
 
-export const createVideoSelectMenu = (videos: VideoInfo[]) => {
+export const createVideoSelectMenu = (videos: SearchResult[]) => {
   const videoMap = new Map<string, string>();
 
   const videoSelect = new StringSelectMenuBuilder()

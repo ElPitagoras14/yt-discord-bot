@@ -73,6 +73,5 @@ for (const file of eventFiles) {
 }
 
 client.cooldowns = new Collection();
-client.queue = new Collection();
 
 client.login(TOKEN);

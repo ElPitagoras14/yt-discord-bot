@@ -6,24 +6,30 @@ import {
   SlashCommandBuilder,
   TextDisplayBuilder,
 } from "discord.js";
-import { Command } from "../../types/command";
-import { validateQueueExists } from "../../utils/audio-validation.js";
+import { Command } from "../../types/command.js";
 import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
+import { musicManager } from "../../music/MusicManager.js";
 import logger from "../../logger.js";
+import { formatUserForLogging } from "../../utils/user-format.js";
 
 const queue: Command = {
   data: new SlashCommandBuilder()
     .setName("queue")
     .setDescription("Shows current queue songs.")
     .setContexts(InteractionContextType.Guild),
+
   execute: async (interaction: Interaction) => {
-    const chatInteraction = interaction as ChatInputCommandInteraction;
-    const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
+    const i = interaction as ChatInputCommandInteraction;
+    const user = formatUserForLogging(i);
+    const guildId = i.guildId!;
 
-    const { queue, success } = await validateQueueExists(chatInteraction);
-    if (!success) return;
+    const q = musicManager.getQueue(guildId);
+    if (!q || q.songs.length === 0) {
+      await i.reply(AUDIO_MESSAGES.ERRORS.NO_QUEUE);
+      return;
+    }
 
-    const list = queue!.songs
+    const list = q.songs
       .map(({ title }, index) =>
         index === 0
           ? AUDIO_MESSAGES.QUEUE.CURRENT_SONG(title)
@@ -35,8 +41,8 @@ const queue: Command = {
       `${AUDIO_MESSAGES.QUEUE.TITLE}\n${list}`,
     );
 
-    logger.info(`[${user}] Viewed queue (${queue!.songs.length} songs)`);
-    await chatInteraction.reply({
+    logger.info(`[${guildId}] [${user}] Viewed queue (${q.songs.length} songs)`);
+    await i.reply({
       components: [textDisplay],
       flags: MessageFlags.IsComponentsV2,
     });

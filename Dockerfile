@@ -2,23 +2,24 @@ FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.json ./
+RUN corepack enable
 
-RUN npm ci
+COPY package.json pnpm-lock.yaml tsconfig.json ./
+
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN npx tsc
+RUN pnpm build
 
 
 FROM node:24-bookworm-slim AS runner
 
 WORKDIR /app
 
-# Update package index and install runtime dependencies
+RUN corepack enable
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
     curl \
     ffmpeg \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
@@ -26,8 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile --prod
+
 COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
