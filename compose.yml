@@ -1,6 +1,7 @@
 services:
   discord-bot:
     image: ghcr.io/elpitagoras14/yt-discord-bot:latest
+    pull_policy: always
     container_name: discord-bot
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}

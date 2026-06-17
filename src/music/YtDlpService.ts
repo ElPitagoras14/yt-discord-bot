@@ -5,10 +5,8 @@ import { IYtDlpService } from "./interfaces.js";
 import { VideoMetadata, SearchResult } from "./types.js";
 
 const NON_CRITICAL_PATTERNS = [
-  "No supported JavaScript runtime could be found",
   "web_safari client https formats have been skipped",
   "web client https formats have been skipped",
-  "JavaScript runtime without JS has been deprecated",
   "SABR streaming for this client",
 ];
 
@@ -31,7 +29,7 @@ export class YtDlpService implements IYtDlpService {
 
     let stderr = "";
     try {
-      const result = await execa("yt-dlp", ["-j", "--no-playlist", url], {
+      const result = await execa("yt-dlp", ["--js-runtimes", "node", "-j", "--no-playlist", url], {
         timeout: 15_000,
         reject: false,
         stripFinalNewline: true,
@@ -61,7 +59,7 @@ export class YtDlpService implements IYtDlpService {
       throw new Error("Invalid search query");
     }
 
-    const result = await execa("yt-dlp", ["-j", `ytsearch5:${query}`], {
+    const result = await execa("yt-dlp", ["--js-runtimes", "node", "-j", `ytsearch5:${query}`], {
       timeout: 20_000,
       reject: false,
     });

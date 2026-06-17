@@ -2,13 +2,11 @@ import { spawn } from "node:child_process";
 import { PassThrough } from "node:stream";
 import { createAudioResource, StreamType } from "@discordjs/voice";
 import logger from "../logger.js";
+import { AUDIO_CONSTANTS } from "../constants/audio.js";
 import { AudioSourceStrategy, AudioResourceHandle } from "./interfaces.js";
 import { Song } from "./types.js";
 
 const FFMPEG_ARGS = [
-  "-reconnect", "1",
-  "-reconnect_streamed", "1",
-  "-reconnect_delay_max", "5",
   "-i", "pipe:0",
   "-map", "0:a",
   "-f", "s16le",
@@ -19,10 +17,11 @@ const FFMPEG_ARGS = [
 ];
 
 const YTDLP_ARGS = [
+  "--js-runtimes", "node",
   "-f", "bestaudio",
   "-o", "-",
   "--no-playlist",
-  "--no-warnings",
+  "--quiet",
 ];
 
 export class FFmpegService implements AudioSourceStrategy {
@@ -35,24 +34,22 @@ export class FFmpegService implements AudioSourceStrategy {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
-    const isPrematureClose = (err: NodeJS.ErrnoException) =>
-      err.code === "ERR_STREAM_PREMATURE_CLOSE";
+    const isPipeError = (err: NodeJS.ErrnoException) =>
+      err.code === "ERR_STREAM_PREMATURE_CLOSE" || err.code === "EPIPE";
 
     yt.on("error", (err) => {
-      if (isPrematureClose(err)) return;
+      if (isPipeError(err)) return;
       logger.error(`[yt-dlp] process error for "${song.title}": ${err.message}`);
     });
 
     ffmpeg.on("error", (err) => {
-      if (isPrematureClose(err)) return;
+      if (isPipeError(err)) return;
       logger.error(`[ffmpeg] process error for "${song.title}": ${err.message}`);
     });
 
     yt.stderr?.on("data", (data: Buffer) => {
       const msg = data.toString().trim();
-      if (msg && !msg.includes("[download]")) {
-        logger.error(`[yt-dlp] ${msg}`);
-      }
+      if (msg) logger.error(`[yt-dlp] ${msg}`);
     });
 
     ffmpeg.stderr?.on("data", (data: Buffer) => {
@@ -72,13 +69,23 @@ export class FFmpegService implements AudioSourceStrategy {
       }
     });
 
+    yt.stdout.on("error", (err: NodeJS.ErrnoException) => {
+      if (isPipeError(err)) return;
+      logger.error(`[yt-dlp] stdout error for "${song.title}": ${err.message}`);
+    });
+
+    ffmpeg.stdin?.on("error", (err: NodeJS.ErrnoException) => {
+      if (isPipeError(err)) return;
+      logger.error(`[ffmpeg] stdin error for "${song.title}": ${err.message}`);
+    });
+
     yt.stdout.pipe(ffmpeg.stdin, { end: true });
 
     const passThrough = new PassThrough({ highWaterMark: 1 << 20 });
     ffmpeg.stdout.pipe(passThrough, { end: true });
 
     passThrough.on("error", (err) => {
-      if (isPrematureClose(err)) return;
+      if (isPipeError(err)) return;
       logger.error(`[ffmpeg] stream error for "${song.title}": ${err.message}`);
     });
 
@@ -88,7 +95,7 @@ export class FFmpegService implements AudioSourceStrategy {
       metadata: { title: song.title, url: song.url },
     });
 
-    resource.volume?.setVolume(0.5);
+    resource.volume?.setVolume(AUDIO_CONSTANTS.VOLUME.DEFAULT);
 
     const cleanup = () => {
       yt.stdout.unpipe();

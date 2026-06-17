@@ -49,8 +49,8 @@ const play: Command = {
 
     await i.deferReply();
 
-    let url: string;
     const subcommand = i.options.getSubcommand();
+    let song: { title: string; url: string; requestedBy: string };
 
     if (subcommand === "url") {
       const raw = i.options.getString("url", true);
@@ -59,7 +59,22 @@ const play: Command = {
         await i.editReply(MESSAGES.ERRORS.INVALID_YOUTUBE_URL);
         return;
       }
-      url = cleaned;
+
+      let metadata;
+      try {
+        metadata = await ytDlpService.getMetadata(cleaned);
+      } catch (err) {
+        logger.error(`[${guildId}] [${user}] getMetadata failed: ${err}`);
+        await i.editReply(MESSAGES.ERRORS.VALID_URL_REQUIRED);
+        return;
+      }
+
+      if (metadata._type !== "video") {
+        await i.editReply(MESSAGES.ERRORS.INVALID_VIDEO_URL);
+        return;
+      }
+
+      song = { title: metadata.title, url: cleaned, requestedBy: user };
     } else {
       const query = i.options.getString("query", true);
       let results;
@@ -74,24 +89,10 @@ const play: Command = {
       const menuWithRow = createVideoSelectMenu(results);
       const selection = await handleVideoSelection(i, menuWithRow);
       if (!selection) return;
-      url = selection.url;
-    }
 
-    let metadata;
-    try {
-      metadata = await ytDlpService.getMetadata(url);
-    } catch (err) {
-      logger.error(`[${guildId}] [${user}] getMetadata failed: ${err}`);
-      await i.editReply(MESSAGES.ERRORS.VALID_URL_REQUIRED);
-      return;
+      const selected = results.find((r) => (r.webpage_url || r.url) === selection.url);
+      song = { title: selected?.title ?? "Unknown", url: selection.url, requestedBy: user };
     }
-
-    if (metadata._type !== "video") {
-      await i.editReply(MESSAGES.ERRORS.INVALID_VIDEO_URL);
-      return;
-    }
-
-    const song = { title: metadata.title, url, requestedBy: user };
     const textChannel = i.channel as GuildTextBasedChannel;
     let queue = musicManager.getQueue(guildId);
     const isNewQueue = !queue;
@@ -101,7 +102,7 @@ const play: Command = {
     }
 
     queue.enqueue(song);
-    await i.editReply(MESSAGES.SUCCESS.SONG_ADDED(metadata.title));
+    await i.editReply(MESSAGES.SUCCESS.SONG_ADDED(song.title));
 
     if (isNewQueue || queue.currentState === GuildQueueState.Idle) {
       await queue.startPlayback();
