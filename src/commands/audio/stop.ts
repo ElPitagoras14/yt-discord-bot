@@ -4,42 +4,32 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
 } from "discord.js";
-import { getVoiceConnection } from "@discordjs/voice";
-import { Command } from "../../types/command";
-import { validateQueueExists } from "../../utils/audio-validation.js";
-import { clearIdleTimeout } from "../../services/idle-timeout.js";
-import { cleanConnection } from "../../services/connection.js";
+import { Command } from "../../types/command.js";
 import { AUDIO_MESSAGES } from "../../constants/audio-messages.js";
+import { musicManager } from "../../music/MusicManager.js";
 import logger from "../../logger.js";
+import { formatUserForLogging } from "../../utils/user-format.js";
 
 const stop: Command = {
   data: new SlashCommandBuilder()
     .setName("stop")
     .setDescription("Stops player and clears queue.")
     .setContexts(InteractionContextType.Guild),
+
   execute: async (interaction: Interaction) => {
-    const chatInteraction = interaction as ChatInputCommandInteraction;
-    const user = `${chatInteraction.user.username}#${chatInteraction.user.discriminator}`;
+    const i = interaction as ChatInputCommandInteraction;
+    const user = formatUserForLogging(i);
+    const guildId = i.guildId!;
 
-    const { queue, success } = await validateQueueExists(chatInteraction);
-    if (!success) return;
-
-    clearIdleTimeout(queue!);
-
-    const connection = getVoiceConnection(chatInteraction.guildId!);
-
-    if (connection) {
-      cleanConnection(
-        chatInteraction,
-        { guild: chatInteraction.guild!, id: chatInteraction.guildId! } as any,
-        connection,
-        queue!.player,
-        queue!,
-      );
+    const queue = musicManager.getQueue(guildId);
+    if (!queue) {
+      await i.reply(AUDIO_MESSAGES.ERRORS.NO_QUEUE);
+      return;
     }
 
-    logger.info(`[${user}] Stopped player and cleared queue`);
-    await chatInteraction.reply(AUDIO_MESSAGES.SUCCESS.PLAYER_STOPPED);
+    logger.info(`[${guildId}] [${user}] /stop invoked`);
+    queue.stop();
+    await i.reply(AUDIO_MESSAGES.SUCCESS.PLAYER_STOPPED);
   },
 };
 
