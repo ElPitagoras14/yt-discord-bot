@@ -23,7 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     ca-certificates \
-    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && ARCH=$(dpkg --print-architecture) \
+    && case "$ARCH" in \
+         amd64) YTDLP_FILE="yt-dlp_linux" ;; \
+         arm64) YTDLP_FILE="yt-dlp_linux_aarch64" ;; \
+         *) echo "Unsupported arch: $ARCH" && exit 1 ;; \
+       esac \
+    && curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${YTDLP_FILE}" -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp \
     && apt-get purge -y --auto-remove curl \
     && apt-get clean \
