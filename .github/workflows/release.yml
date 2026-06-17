@@ -2,38 +2,60 @@ name: Docker Release & Deploy
 
 on:
   push:
-    tags:
-      - "v*.*.*"
-      - "v*.*.*-*"
-
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to build (e.g., 1.0.0)"
-        required: true
-        type: string
 
 permissions:
+  contents: write
   packages: write
 
 jobs:
-  build-and-deploy:
+  check-version:
     runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.version_check.outputs.should_release }}
+      version: ${{ steps.version_check.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Extract version
+      - name: Compare package.json version against latest tag
+        id: version_check
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+
+          echo "Package version: $PKG_VERSION"
+          echo "Latest tag: ${LATEST_TAG:-none}"
+          echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tags — releasing"
+            echo "should_release=true" >> $GITHUB_OUTPUT
           else
-            VERSION=${GITHUB_REF#refs/tags/v}
+            LATEST_VERSION=${LATEST_TAG#v}
+            GREATER=$(printf '%s\n' "$PKG_VERSION" "$LATEST_VERSION" | sort -V | tail -1)
+            if [ "$GREATER" = "$PKG_VERSION" ] && [ "$PKG_VERSION" != "$LATEST_VERSION" ]; then
+              echo "$PKG_VERSION > $LATEST_VERSION — releasing"
+              echo "should_release=true" >> $GITHUB_OUTPUT
+            else
+              echo "$PKG_VERSION is not greater than $LATEST_VERSION — skipping"
+              echo "should_release=false" >> $GITHUB_OUTPUT
+            fi
           fi
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Building version: $VERSION"
+
+  build-and-deploy:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -56,38 +78,41 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/elpitagoras14/yt-discord-bot:${{ env.VERSION }}
+            ghcr.io/elpitagoras14/yt-discord-bot:${{ needs.check-version.outputs.version }}
             ghcr.io/elpitagoras14/yt-discord-bot:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract commit message
-        id: commit
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ needs.check-version.outputs.version }}" -m "Release v${{ needs.check-version.outputs.version }}"
+          git push origin "v${{ needs.check-version.outputs.version }}"
+
+      - name: Create GitHub Release
+        run: |
+          gh release create "v${{ needs.check-version.outputs.version }}" \
+            --title "v${{ needs.check-version.outputs.version }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to Dokploy
+        if: success()
+        continue-on-error: true
         run: |
           MESSAGE=$(git log -1 --pretty=%B)
           TITLE=$(echo "$MESSAGE" | head -n1 | cut -c1-100 | sed 's/"/\\"/g')
           DESCRIPTION=$(echo "$MESSAGE" | cut -c1-500 | sed ':a;N;$!ba;s/\n/ /g' | sed 's/"/\\"/g')
 
-          echo "title=$TITLE" >> $GITHUB_OUTPUT
-          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
-
-      - name: Deploy to Dokploy
-        id: dokploy
-        if: success()
-        continue-on-error: true
-        run: |
           curl -X 'POST' \
             'https://dokploy.elpitagoras14.xyz/api/compose.deploy' \
             -H 'accept: application/json' \
             -H 'Content-Type: application/json' \
             -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
-            -d '{
-              "composeId": "${{ vars.DOKPLOY_COMPOSE_ID }}",
-              "title": "${{ steps.commit.outputs.title }}",
-              "description": "${{ steps.commit.outputs.description }}"
-            }'
-
-      - name: Deploy to Dokploy status check
-        if: always() && success()
-        run: |
-          echo "Dokploy deployment completed"
+            -d "{
+              \"composeId\": \"${{ vars.DOKPLOY_COMPOSE_ID }}\",
+              \"title\": \"$TITLE\",
+              \"description\": \"$DESCRIPTION\"
+            }"
