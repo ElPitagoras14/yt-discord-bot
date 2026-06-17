@@ -20,10 +20,11 @@ WORKDIR /app
 RUN corepack enable
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
     ffmpeg \
+    curl \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp \
+    && apt-get purge -y --auto-remove curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
