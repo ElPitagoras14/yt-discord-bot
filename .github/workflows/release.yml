@@ -107,7 +107,7 @@ jobs:
           DESCRIPTION=$(echo "$MESSAGE" | cut -c1-500 | sed ':a;N;$!ba;s/\n/ /g' | sed 's/"/\\"/g')
 
           curl -X 'POST' \
-            'https://dokploy.elpitagoras14.xyz/api/compose.deploy' \
+            'https://dokploy.pitagoraslab.qzz.io/api/compose.deploy' \
             -H 'accept: application/json' \
             -H 'Content-Type: application/json' \
             -H 'x-api-key: ${{ secrets.DOKPLOY_API_KEY }}' \
