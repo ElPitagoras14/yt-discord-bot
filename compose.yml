@@ -8,6 +8,9 @@ services:
       - APP_ID=${APP_ID}
       - PUBLIC_KEY=${PUBLIC_KEY}
       - YTDLP_POT_PROVIDER_URL=http://bgutil-provider:4416
+      - LOCAL_MP3_DIR=/app/mp3s
+    volumes:
+      - mp3_storage:/app/mp3s:ro
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -20,3 +23,19 @@ services:
     container_name: bgutil-provider
     init: true
     restart: unless-stopped
+
+  filebrowser:
+    image: gtstef/filebrowser:1.5.2-stable
+    container_name: filebrowser
+    environment:
+      - FILEBROWSER_ADMIN_PASSWORD=${FILEBROWSER_ADMIN_PASSWORD}
+    volumes:
+      - mp3_storage:/srv
+      - filebrowser_data:/home/filebrowser/data
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+volumes:
+  mp3_storage:
+  filebrowser_data:
