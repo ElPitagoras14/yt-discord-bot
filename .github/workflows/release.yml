@@ -111,7 +111,10 @@ jobs:
 
   build-and-deploy:
     needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
+    # check-ytdlp only runs on schedule/dispatch, and a skipped ancestor is
+    # propagated down the needs graph. Without !cancelled() this job is skipped
+    # on every push, even when check-version asks for a release.
+    if: ${{ !cancelled() && needs.check-version.outputs.should_release == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
