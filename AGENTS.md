@@ -1,10 +1,12 @@
 # AGENTS.md
 
 ## Development Commands
-- `npm run dev` - Start development server with hot reload using tsx
-- `npm run build` - Compile TypeScript to JavaScript and copy assets
-- `npm start` - Run compiled bot from dist/
-- `npm run start:with-register` - Register commands and start bot
+- `pnpm dev` - Start development server with hot reload using tsx
+- `pnpm build` - Compile TypeScript to JavaScript
+- `pnpm start` - Run compiled bot from dist/
+- `pnpm register` - Register slash commands with Discord
+- `pnpm start:with-register` - Register commands and start bot
+- `pnpm lint` / `pnpm lint:fix` / `pnpm format` - Biome checks and formatting
 
 ## Code Style Guidelines
 
