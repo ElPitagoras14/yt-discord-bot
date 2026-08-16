@@ -4,12 +4,12 @@
     {
       "label": "Run bot",
       "type": "shell",
-      "command": "npm run dev"
+      "command": "pnpm run dev"
     },
     {
       "label": "Register commands",
       "type": "shell",
-      "command": "npm run register"
+      "command": "pnpm run register"
     }
   ]
 }
