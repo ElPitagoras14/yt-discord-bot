@@ -1,4 +1,4 @@
-# yt-discord-bot
+# Yt Discord Bot
 
 A Discord bot for playing audio from YouTube with a focus on stability and simplicity. This project provides a reusable Docker image that allows technical users to deploy their own bot by creating a Discord application and configuring it through environment variables.
 
@@ -39,39 +39,11 @@ Required environment variables for the bot to function:
 - `APP_ID`: Your Discord application ID
 - `PUBLIC_KEY`: Your Discord application public key
 
-### How to Get Environment Variables
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a new application or select existing one
-3. Go to the "Bot" tab and copy the token
-4. Go to the "General Information" tab for Application ID and Public Key
-
-## Discord Bot Setup
-
-To set up your own Discord bot:
-
-1. Visit the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name
-3. Go to the "Bot" tab and click "Add Bot"
-4. Enable necessary intents (Message Content, Server Members)
-5. Generate and copy your bot token
-6. Invite the bot to your server using the OAuth2 URL generator
+Get all three from the [Discord Developer Portal](https://discord.com/developers/applications): create an application, add a bot, and enable the required intents. The token lives under the "Bot" tab; the app ID and public key are under "General Information".
 
 ## Commands
 
-- `/play <url/search>` - Play audio from YouTube URL or search
-- `/skip` - Skip current track
-- `/stop` - Stop playback and disconnect
-- `/queue` - Show current queue
-- `/clean` - Clear the queue
-
-## Technologies
-
-- **Node.js** - Runtime environment
-- **discord.js** - Discord API library
-- **ffmpeg** - Audio processing
-- **yt-dlp** - YouTube video/audio extraction
-- **Docker** - Containerization
+See `src/commands/` for the up-to-date list of slash commands and their behavior.
 
 ## Disclaimer
 

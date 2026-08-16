@@ -31,6 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        esac \
     && curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${YTDLP_FILE}" -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp \
+    && mkdir -p /etc/yt-dlp/plugins \
+    && curl -L "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases/latest/download/bgutil-ytdlp-pot-provider.zip" \
+         -o /etc/yt-dlp/plugins/bgutil-ytdlp-pot-provider.zip \
     && apt-get purge -y --auto-remove curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
