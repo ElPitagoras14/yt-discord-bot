@@ -24,6 +24,16 @@ services:
     init: true
     restart: unless-stopped
 
+  # Docker creates mp3_storage owned by root, but filebrowser runs as uid 1000
+  # and would fail every upload with "permission denied". Fix the ownership
+  # before it starts. Runs on every up and is a no-op once already correct.
+  mp3-permissions:
+    image: alpine:3
+    command: sh -c "chown -R 1000:1000 /srv && chmod -R a+rX /srv"
+    volumes:
+      - mp3_storage:/srv
+    restart: "no"
+
   filebrowser:
     image: gtstef/filebrowser:1.5.2-stable
     container_name: filebrowser
@@ -35,6 +45,9 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+    depends_on:
+      mp3-permissions:
+        condition: service_completed_successfully
 
 volumes:
   mp3_storage:
